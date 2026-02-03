@@ -3,10 +3,14 @@ package org.mg.urlshort.controller;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mg.urlshort.TestUtils;
+import org.mg.urlshort.config.TimeConfiguration;
 import org.mg.urlshort.dto.ExchangeUrlDto;
 import org.mg.urlshort.service.URLService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.json.JsonCompareMode;
@@ -14,6 +18,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
 import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -28,6 +35,15 @@ class URLControllerTest {
     @MockitoBean private URLService urlService;
 
     private ObjectMapper objectMapper;
+
+    @org.springframework.boot.test.context.TestConfiguration
+    static class TestConfiguration {
+        @Bean
+        public Clock clock() {
+            final Instant fixedNow = Instant.parse("2026-05-20T12:00:00Z");
+            return Clock.fixed(fixedNow, ZoneId.of("UTC"));
+        }
+    }
 
     @BeforeEach
     void setUp() {
@@ -54,11 +70,12 @@ class URLControllerTest {
     @Test
     public void shouldReturn400WhenNoBodyPassedToShorten() throws Exception {
         // Given
-        given(urlService.shortenUrl(any())).willReturn(new ExchangeUrlDto(""));
+        String expectedJson = TestUtils.getResourceAsString(Path.of("invalid-shortening-request.json"));
 
         // When
         // Then
         mockMvc.perform(post("/url"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().json(expectedJson, JsonCompareMode.STRICT));
     }
 }
